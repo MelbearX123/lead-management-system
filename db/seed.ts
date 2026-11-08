@@ -234,12 +234,13 @@ async function insertLead(
   }
 
   for (const document of documents) {
+    const storageKey = await saveFile(samplePdf);
     await sql`
       INSERT INTO documents ${sql({
         leadId,
         uploadedBy: document.by.userId,
         fileName: document.fileName,
-        storageKey: await saveFile(samplePdf),
+        storageKey,
         sizeBytes: samplePdf.length,
         createdAt: addHours(stepTime(document.afterStep), 1),
       })}
