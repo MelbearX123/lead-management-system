@@ -395,6 +395,141 @@ Firm B also practices in New York, so reassigning a New York case to it doesn't 
 - Lead 6: a PDF uploaded by Firm B.
 - PDFs come from one small sample file committed in the seed folder. The seed copies it into `uploads/` under a generated name.
 
+## API Routing
+
+All paths start with `/api`. "Has access" means the access rules table above: a plaintiff's own leads, a firm's current leads, or any lead for an admin.
+
+### Auth
+
+Sign-in is an email plus one shared demo password (no registration). Any plaintiff created by the lead form can sign in this way too.
+
+| Method | Path | Who can call | What it does |
+| --- | --- | --- | --- |
+| POST | /api/auth/login | anyone | Sign in with email + demo password, set a session cookie |
+| POST | /api/auth/logout | signed in | Clear the session |
+| GET | /api/auth/me | signed in | Current user's name, role, and firm, so the frontend knows which view to show |
+
+### Users
+
+No endpoints. No workflow lists users: plaintiffs are created by the lead form, the current user comes from `/api/auth/me`, and names (plaintiff, note author) come back inside lead and note responses.
+
+### Firms
+
+| Method | Path | Who can call | What it does |
+| --- | --- | --- | --- |
+| GET | /api/firms | admin | List firms, for the firm filter and the reassign dropdown |
+
+### Regions and categories
+
+| Method | Path | Who can call | What it does |
+| --- | --- | --- | --- |
+| GET | /api/regions | anyone | List regions for the lead form and filters |
+| GET | /api/categories | anyone | List categories for the lead form and filters |
+
+### Routing rules
+
+No endpoints. Rules are seeded, and routing runs inside `POST /api/leads`.
+
+### Leads and cases
+
+| Method | Path | Who can call | What it does |
+| --- | --- | --- | --- |
+| POST | /api/leads | anyone | Submit a lead. Finds or creates the plaintiff by email, routes it, writes history |
+| GET | /api/leads | signed in | List leads the caller has access to, newest first, paginated. Filters below |
+| GET | /api/leads/:leadId | has access | One lead with its plaintiff's name and email, firm, status, and progress |
+| POST | /api/leads/:leadId/accept | staff of the assigned firm | Pending → accepted, progress starts at intake if empty, writes history |
+| POST | /api/leads/:leadId/decline | staff of the assigned firm | Pending lead loses its firm and goes to the admin queue, writes history |
+| POST | /api/leads/:leadId/assign | admin | Body `{ firmId }`. Gives the lead to a firm as pending, for both unmatched leads and reassignment, writes history |
+| PATCH | /api/leads/:leadId/progress | staff of the assigned firm | Body `{ progress }`. Only on accepted cases, writes history |
+
+`GET /api/leads` query parameters:
+
+| Parameter | Who can use it | Values |
+| --- | --- | --- |
+| q | admin | Text matched against title and plaintiff name |
+| regionId, categoryId | staff, admin | Filter by region or category |
+| firmId | admin | A firm's id, or `unmatched` for leads with no firm |
+| status | staff, admin | pending or accepted |
+| sort | signed in | newest (default) or oldest |
+| page | signed in | Page number, 25 per page |
+
+### Documents
+
+| Method | Path | Who can call | What it does |
+| --- | --- | --- | --- |
+| GET | /api/leads/:leadId/documents | has access | List a lead's documents (name, uploader, date), paginated |
+| POST | /api/leads/:leadId/documents | plaintiff who owns it, staff of the assigned firm | Upload a PDF. Rejects anything that isn't a PDF or is over 10 MB |
+| GET | /api/leads/:leadId/documents/:documentId | has access | Download the PDF |
+
+### Notes
+
+| Method | Path | Who can call | What it does |
+| --- | --- | --- | --- |
+| GET | /api/leads/:leadId/notes | staff of the assigned firm, admin | Staff get only their firm's notes, admins get every firm's, paginated |
+| POST | /api/leads/:leadId/notes | staff of the assigned firm | Add a note owned by the author's firm |
+
+### History
+
+| Method | Path | Who can call | What it does |
+| --- | --- | --- | --- |
+| GET | /api/leads/:leadId/history | admin | A lead's history, oldest first, paginated |
+
+### Errors
+
+| Status | When |
+| --- | --- |
+| 400 | Bad input, like a missing field or a region that doesn't exist |
+| 401 | Not signed in |
+| 403 | Signed in but the wrong role, like a plaintiff reading notes |
+| 404 | The lead doesn't exist, or the caller has no access to it |
+| 409 | The lead changed first, like a firm accepting a lead an admin just reassigned |
+
+### Why it's shaped this way
+
+- **Everything about a lead is nested under `/api/leads/:leadId`.** Documents, notes, and history only exist on a lead, so every check starts with "can you access this lead?"
+- **Accept, decline, and assign are their own endpoints.** Each one is a state change with its own rule about who can do it and from which status. A generic `PATCH /api/leads/:leadId { status }` would push all those rules into one handler, and a client could send any combination of fields.
+- **One `assign` endpoint for both unmatched leads and reassignment.** Both set the firm and put the lead back to pending, so the data change is the same.
+- **One `GET /api/leads` for every role.** The backend always narrows results to what the caller can access before applying filters. Separate endpoints per role (`/api/admin/leads`, `/api/firm/leads`) would also work, but would repeat the same query three times.
+- **404 instead of 403 for someone else's lead.** A 403 would confirm the lead exists. A 404 reveals nothing.
+- **409 when a conditional update changes nothing.** That's how the frontend learns someone else got there first, and can reload.
+- **Related records are paginated.** A case can have hundreds of documents, notes, or history rows, so they load separately from the lead, a page at a time.
+- **The lead form is public.** Anyone can submit, and the lead is tied to the plaintiff by email. Someone could submit a lead under another person's email but never read that person's leads. With more time: email a sign-in link to verify the address.
+
+## With More Time
+
+1,000 leads a day is less than one a minute, and 100,000 rows is small for one Postgres database. So most full-scale additions are about reliability, security, and operations, not speed. Add each one when something calls for it, not up front.
+
+| Concern | Technology | What it does | Needed at this scale? |
+| --- | --- | --- | --- |
+| Database | Managed Postgres (AWS RDS or Aurora) | Same Postgres, with backups, failover, and upgrades handled | Yes, for reliability |
+| Connections | PgBouncer | Shares a pool of database connections across app servers | Once there are several app servers |
+| Read scaling | Read replicas | Copies of the database for read-heavy pages like inboxes and search | Only if reads outgrow one server |
+| File storage | S3 with presigned URLs | Stores PDFs. The backend checks access, then hands out a short-lived download link | Yes, replaces the local folder |
+| Upload safety | Virus scanning (ClamAV, or AWS's built-in S3 malware scanning) | Checks uploaded files before anyone opens them | Yes, strangers upload PDFs |
+| Caching | Redis | Keeps data in memory, like sessions and the region/category lists | Barely. See below |
+| Background jobs | A queue (AWS SQS, or BullMQ/Celery on Redis) | Runs slow work outside the request, like emails and scans | Yes, once there are notifications |
+| Email | AWS SES, Postmark, or SendGrid | Tells firms about new leads and plaintiffs about updates | Yes, the biggest missing feature |
+| Auth | Auth0, Clerk, or Cognito | Real sign-in, single sign-on for firms, MFA, email sign-in links for plaintiffs | Yes, replaces the demo password |
+| Search | OpenSearch or Elasticsearch | A dedicated search engine | No. Trigram indexes are enough until millions of leads |
+| Hosting | Containers (AWS ECS or Kubernetes) or Vercel, behind a load balancer | Several copies of the app, so one crash doesn't take it down | Yes, for uptime |
+| CDN | CloudFront or Cloudflare | Serves frontend files from servers near users | Nice to have |
+| Abuse protection | Rate limiting, a web application firewall, CAPTCHA on the lead form | Stops spam and bots on the public form | Yes, the form is public |
+| Observability | Logs, metrics, tracing (Datadog, or OpenTelemetry + Grafana), Sentry | Shows when something breaks and why | Yes |
+| Secrets | AWS Secrets Manager | Keeps passwords and API keys out of code | Yes |
+| Deployment | GitHub Actions + Terraform | Automated tests and deploys, infrastructure written as code | Yes |
+
+### Caching and access control
+
+Caching a firm's inbox is risky. After a reassignment, a cached inbox would keep showing the old firm a lead it no longer has access to, which breaks "the old firm loses future access". Only cache data that rarely changes and isn't private, like the region and category lists, and always check access against the database.
+
+### Legal data
+
+These are confidential client documents, so a real version also needs encryption at rest (S3 and RDS both support it), strict access logging, backups with point-in-time restore, and possibly a security audit like SOC 2.
+
+### Order
+
+First the things that make it safe and reliable: S3 with virus scanning, real auth, email notifications through a queue, and monitoring. Caching, read replicas, or a search engine only when measurements show they're needed.
+
 ## Open Questions
 
 None right now.
