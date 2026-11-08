@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { sendJson } from "@/lib/api";
 
 type DemoAccount = { email: string; label: string };
@@ -9,6 +9,12 @@ type DemoAccount = { email: string; label: string };
 export function LoginForm({ demoAccounts, demoPassword }: { demoAccounts: DemoAccount[]; demoPassword: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    signIn(String(form.get("email")), String(form.get("password")));
+  }
 
   async function signIn(email: string, password: string) {
     try {
@@ -22,10 +28,7 @@ export function LoginForm({ demoAccounts, demoPassword }: { demoAccounts: DemoAc
 
   return (
     <div className="space-y-8">
-      <form
-        action={(form) => signIn(String(form.get("email")), String(form.get("password")))}
-        className="space-y-3"
-      >
+      <form onSubmit={submit} className="space-y-3">
         <input name="email" type="email" placeholder="Email" required className="w-full rounded border px-3 py-2" />
         <input
           name="password"
