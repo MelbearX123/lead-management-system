@@ -79,12 +79,13 @@ export async function getLeadForUser(user: User, leadId: number) {
 export async function listLeads(user: User, { q, regionId, categoryId, firmId, status, sort, page }: LeadFilters) {
   const where = sql`AND`.join([
     leadsVisibleTo(user),
-    q && sql`(leads.title ILIKE ${contains(q)} OR users.fname || ' ' || users.lname ILIKE ${contains(q)})`,
-    regionId && sql`leads.region_id = ${regionId}`,
-    categoryId && sql`leads.category_id = ${categoryId}`,
+    q !== undefined &&
+      sql`(leads.title ILIKE ${contains(q)} OR users.fname || ' ' || users.lname ILIKE ${contains(q)})`,
+    regionId !== undefined && sql`leads.region_id = ${regionId}`,
+    categoryId !== undefined && sql`leads.category_id = ${categoryId}`,
     firmId === "unmatched" && sql`leads.firm_id IS NULL`,
     typeof firmId === "number" && sql`leads.firm_id = ${firmId}`,
-    status && sql`leads.status = ${status}`,
+    status !== undefined && sql`leads.status = ${status}`,
   ]);
   const direction = sort === "oldest" ? sql`ASC` : sql`DESC`;
 
@@ -113,7 +114,8 @@ export function submitLead({ fname, lname, email, regionId, categoryId, title, d
       INSERT INTO leads ${tx({ plaintiffId, firmId: rule?.firmId ?? null, regionId, categoryId, title, description })}
       RETURNING *
     `;
-    await recordHistory(tx, null, { ...lead, firmId: null }, lead);
+    const unrouted = { ...lead, firmId: null };
+    await recordHistory(tx, null, unrouted, lead);
     return lead;
   });
 }
