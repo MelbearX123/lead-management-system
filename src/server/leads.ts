@@ -1,9 +1,10 @@
 import "server-only";
 import type postgres from "postgres";
-import type { LeadStatus, Progress } from "../lib/lead-states";
+import { z } from "zod";
+import { type LeadStatus, leadStatuses, type Progress } from "../lib/lead-states";
 import { sql } from "./db";
 import { HttpError } from "./http";
-import { paginate } from "./pagination";
+import { pageSchema, paginate } from "./pagination";
 import { findOrCreatePlaintiff, type User } from "./users";
 
 export type Lead = {
@@ -28,15 +29,17 @@ export type LeadDetails = Lead & {
   categoryName: string;
 };
 
-export type LeadFilters = {
-  q?: string;
-  regionId?: string;
-  categoryId?: string;
-  firmId?: number | "unmatched";
-  status?: LeadStatus;
-  sort: "newest" | "oldest";
-  page: number;
-};
+export const leadFiltersSchema = z.object({
+  q: z.string().trim().min(1).optional(),
+  regionId: z.string().optional(),
+  categoryId: z.string().optional(),
+  firmId: z.union([z.literal("unmatched"), z.coerce.number().int().positive()]).optional(),
+  status: z.enum(leadStatuses).optional(),
+  sort: z.enum(["newest", "oldest"]).default("newest"),
+  page: pageSchema,
+});
+
+export type LeadFilters = z.infer<typeof leadFiltersSchema>;
 
 export type NewLead = {
   fname: string;
