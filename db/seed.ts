@@ -1,4 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { sql } from "../src/server/db.ts";
+import { saveFile } from "../src/server/storage.ts";
 import { regions } from "./regions.ts";
 
 type User = { userId: number; firmId: number | null };
@@ -11,6 +13,10 @@ type LeadState = {
 
 type Step = [by: User | null, change: Partial<LeadState>];
 
+type SeedNote = { afterStep: number; by: User; body: string };
+
+type SeedDocument = { afterStep: number; by: User; fileName: string };
+
 type SeedLead = {
   plaintiff: User;
   regionId: string;
@@ -18,9 +24,13 @@ type SeedLead = {
   title: string;
   description: string;
   steps: Step[];
+  notes?: SeedNote[];
+  documents?: SeedDocument[];
 };
 
 const historyField = { firmId: "firm", status: "status", progress: "progress" } as const;
+
+const samplePdf = await readFile(new URL("sample.pdf", import.meta.url));
 
 export async function seed() {
   await sql`INSERT INTO regions ${sql(regions)}`;
@@ -89,6 +99,9 @@ export async function seed() {
         [avery, { status: "accepted", progress: "intake" }],
         [avery, { progress: "investigation" }],
       ],
+      notes: [
+        { afterStep: 2, by: avery, body: "Requested the store's incident report and security footage." },
+      ],
     },
     {
       plaintiff: maya,
@@ -104,6 +117,11 @@ export async function seed() {
         [sam, { status: "accepted" }],
         [sam, { progress: "negotiation" }],
       ],
+      notes: [
+        { afterStep: 2, by: avery, body: "Client has hospital records. Waiting on the police report." },
+        { afterStep: 5, by: sam, body: "Sent a demand letter to the delivery company's insurer." },
+      ],
+      documents: [{ afterStep: 1, by: maya, fileName: "hospital-discharge-summary.pdf" }],
     },
     {
       plaintiff: jordan,
@@ -118,6 +136,7 @@ export async function seed() {
         [sam, { progress: "negotiation" }],
         [sam, { progress: "litigation" }],
       ],
+      documents: [{ afterStep: 4, by: sam, fileName: "complaint-filed.pdf" }],
     },
     {
       plaintiff: jordan,
@@ -173,7 +192,11 @@ export async function seed() {
   }
 }
 
-async function insertLead({ plaintiff, steps, ...details }: SeedLead, submittedAt: Date) {
+async function insertLead(
+  { plaintiff, steps, notes = [], documents = [], ...details }: SeedLead,
+  submittedAt: Date,
+) {
+  const stepTime = (step: number) => addHours(submittedAt, 24 * step);
   let state: LeadState = { firmId: null, status: "pending", progress: null };
   const history = [];
 
@@ -184,7 +207,7 @@ async function insertLead({ plaintiff, steps, ...details }: SeedLead, submittedA
         field: historyField[key],
         oldValue: toText(state[key]),
         newValue: toText(change[key] ?? null),
-        createdAt: addHours(submittedAt, 24 * i),
+        createdAt: stepTime(i),
       });
     }
     state = { ...state, ...change };
@@ -197,7 +220,31 @@ async function insertLead({ plaintiff, steps, ...details }: SeedLead, submittedA
   if (history.length > 0) {
     await sql`INSERT INTO history ${sql(history.map((row) => ({ ...row, leadId })))}`;
   }
-  return leadId;
+
+  for (const note of notes) {
+    await sql`
+      INSERT INTO notes ${sql({
+        leadId,
+        firmId: note.by.firmId,
+        authorId: note.by.userId,
+        body: note.body,
+        createdAt: addHours(stepTime(note.afterStep), 1),
+      })}
+    `;
+  }
+
+  for (const document of documents) {
+    await sql`
+      INSERT INTO documents ${sql({
+        leadId,
+        uploadedBy: document.by.userId,
+        fileName: document.fileName,
+        storageKey: await saveFile(samplePdf),
+        sizeBytes: samplePdf.length,
+        createdAt: addHours(stepTime(document.afterStep), 1),
+      })}
+    `;
+  }
 }
 
 async function insertFirm(name: string, regionId: string) {
