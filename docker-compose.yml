@@ -9,6 +9,10 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U postgres -d leads
+      interval: 2s
+      retries: 15
 
 volumes:
   db-data:

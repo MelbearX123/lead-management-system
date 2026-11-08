@@ -10,15 +10,15 @@ You need [Node.js 24](https://nodejs.org) and [Docker](https://www.docker.com/).
 
 ```bash
 cp .env.example .env
-docker compose up -d
+docker compose up -d --wait
 npm install
 npm run db:reset
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. If port 3000 is taken, Next.js picks another and prints it.
 
-- `docker compose up -d` starts Postgres on port 5432. Stop anything else using that port first.
+- `docker compose up -d --wait` starts Postgres on port 5432 and waits until it's ready. Stop anything else using that port first.
 - `npm run db:reset` creates the tables and loads the demo data. Run it again any time to start over.
 - Uploaded PDFs are stored in `uploads/`.
 
@@ -48,6 +48,8 @@ Plaintiffs who submit the lead form can also sign in with their own email and `d
    - Reassign a case. The old firm can no longer open it, and the new firm has to accept it. The new firm sees the plaintiff's documents but not the old firm's notes.
 
 ## Tests
+
+With Postgres running (`docker compose up -d --wait`):
 
 ```bash
 npm test
