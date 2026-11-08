@@ -1,13 +1,15 @@
 import "server-only";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { HttpError } from "./http";
 import { findUserByEmail, findUserById, type Role } from "./users";
 
-const DEMO_PASSWORD = "demo";
+export const DEMO_PASSWORD = "demo";
 
 async function getSession() {
   const cookieStore = await cookies();
+  await connection();
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET is not set");
 
