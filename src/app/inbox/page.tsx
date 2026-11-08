@@ -7,7 +7,7 @@ export default function InboxPage({ searchParams }: PageProps<"/inbox">) {
     <>
       <h1 className="mb-4 text-2xl font-semibold">Inbox</h1>
       <Suspense fallback={<p className="text-gray-500">Loading…</p>}>
-        <LeadList allowedRoles={[...staffRoles]} searchParams={searchParams} />
+        <LeadList allowedRoles={[...staffRoles]} searchParams={searchParams} filterable />
       </Suspense>
     </>
   );

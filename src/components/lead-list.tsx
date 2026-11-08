@@ -1,24 +1,27 @@
-import { listLeads } from "@/server/leads";
-import { requirePageUser } from "@/server/pages";
-import { pageFrom } from "@/server/pagination";
+import { leadFiltersSchema, listLeads } from "@/server/leads";
+import { filledSearchParams, parseSearchParams, requirePageUser, type SearchParams } from "@/server/pages";
 import type { Role } from "@/server/users";
+import { LeadFilters } from "./lead-filters";
 import { LeadTable } from "./lead-table";
 import { Pagination } from "./pagination";
 
 type Props = {
   allowedRoles: Role[];
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParams>;
+  filterable?: boolean;
 };
 
-export async function LeadList({ allowedRoles, searchParams }: Props) {
+export async function LeadList({ allowedRoles, searchParams, filterable = false }: Props) {
   const user = await requirePageUser(...allowedRoles);
-  const page = pageFrom((await searchParams).page);
-  const result = await listLeads(user, { sort: "newest", page });
+  const query = filledSearchParams(await searchParams);
+  const filters = parseSearchParams(leadFiltersSchema, query);
+  const result = await listLeads(user, filters);
 
   return (
     <>
+      {filterable && <LeadFilters filters={filters} />}
       <LeadTable leads={result.items} viewer={user.role} />
-      <Pagination result={result} query={{}} />
+      <Pagination result={result} query={query} />
     </>
   );
 }
