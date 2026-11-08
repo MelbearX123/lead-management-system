@@ -1,14 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { sql } from "../src/server/db.ts";
+import type { LeadStatus, Progress } from "../src/server/leads.ts";
 import { saveFile } from "../src/server/storage.ts";
+import type { Role } from "../src/server/users.ts";
 import { regions } from "./regions.ts";
 
 type User = { userId: number; firmId: number | null };
 
 type LeadState = {
   firmId: number | null;
-  status: "pending" | "accepted";
-  progress: "intake" | "investigation" | "negotiation" | "litigation" | "closed" | null;
+  status: LeadStatus;
+  progress: Progress | null;
 };
 
 type Step = [by: User | null, change: Partial<LeadState>];
@@ -256,7 +258,7 @@ async function insertFirm(name: string, regionId: string) {
 }
 
 async function insertUser(
-  role: string,
+  role: Role,
   fname: string,
   lname: string,
   email: string,
