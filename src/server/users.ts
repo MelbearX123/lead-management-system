@@ -7,6 +7,10 @@ export type Role = "plaintiff" | "attorney" | "paralegal" | "admin";
 
 export const staffRoles = ["attorney", "paralegal"] as const;
 
+export function isStaff(user: User) {
+  return user.role === "attorney" || user.role === "paralegal";
+}
+
 export type User = {
   userId: number;
   role: Role;

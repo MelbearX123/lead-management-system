@@ -2,11 +2,13 @@ import { Suspense } from "react";
 import { CaseProgress } from "@/components/case-progress";
 import { Documents } from "@/components/documents";
 import { LeadStatus } from "@/components/lead-status";
+import { StaffActions } from "@/components/staff-actions";
 import { formatDate } from "@/lib/format";
 import { parseId } from "@/server/http";
 import { getLeadForUser } from "@/server/leads";
 import { loadOrNotFound, requirePageUser } from "@/server/pages";
 import { pageFrom } from "@/server/pagination";
+import { isStaff } from "@/server/users";
 
 export default function LeadPage({ params, searchParams }: PageProps<"/leads/[leadId]">) {
   return (
@@ -38,6 +40,14 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
         </dl>
         <p className="whitespace-pre-wrap rounded border bg-white p-4">{lead.description}</p>
       </header>
+      {isStaff(user) && (
+        <StaffActions
+          key={`${lead.status}-${lead.progress}`}
+          leadId={lead.leadId}
+          status={lead.status}
+          progress={lead.progress}
+        />
+      )}
       {lead.progress && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Progress</h2>
