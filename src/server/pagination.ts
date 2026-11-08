@@ -7,6 +7,10 @@ const PAGE_SIZE = 25;
 
 export const pageSchema = z.coerce.number().int().min(1).default(1);
 
+export function pageFrom(value: unknown) {
+  return pageSchema.catch(1).parse(value);
+}
+
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
 export async function paginate<T extends object>({

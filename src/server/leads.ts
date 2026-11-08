@@ -29,6 +29,8 @@ export type LeadDetails = Lead & {
   plaintiffName: string;
   plaintiffEmail: string;
   firmName: string | null;
+  regionName: string;
+  categoryName: string;
 };
 
 export type LeadFilters = {
@@ -161,7 +163,9 @@ function leadDetailColumns() {
     SELECT leads.*,
            users.fname || ' ' || users.lname AS plaintiff_name,
            users.email AS plaintiff_email,
-           firms.name AS firm_name
+           firms.name AS firm_name,
+           regions.name AS region_name,
+           categories.name AS category_name
   `;
 }
 
@@ -169,6 +173,8 @@ function leadDetailTables() {
   return sql`
     FROM leads
     JOIN users ON users.user_id = leads.plaintiff_id
+    JOIN regions ON regions.region_id = leads.region_id
+    JOIN categories ON categories.category_id = leads.category_id
     LEFT JOIN firms ON firms.firm_id = leads.firm_id
   `;
 }
