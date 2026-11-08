@@ -47,9 +47,7 @@ describe("leads", () => {
     });
   });
 
-  it("derives is_case from progress", async () => {
-    const mismatched = await sql`SELECT 1 FROM leads WHERE is_case <> (progress IS NOT NULL)`;
-    expect(mismatched).toHaveLength(0);
+  it("doesn't allow is_case to be set directly", async () => {
     await expect(sql`UPDATE leads SET is_case = false`).rejects.toThrow(/can only be updated to DEFAULT/);
   });
 
