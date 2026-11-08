@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { AssignLead } from "@/components/assign-lead";
 import { CaseProgress } from "@/components/case-progress";
 import { Documents } from "@/components/documents";
+import { History } from "@/components/history";
 import { LeadStatus } from "@/components/lead-status";
 import { Notes } from "@/components/notes";
 import { StaffActions } from "@/components/staff-actions";
@@ -64,6 +65,9 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
       <Documents user={user} leadId={lead.leadId} page={pageFrom(query.documentsPage)} query={query} />
       {user.role !== "plaintiff" && (
         <Notes user={user} leadId={lead.leadId} page={pageFrom(query.notesPage)} query={query} />
+      )}
+      {user.role === "admin" && (
+        <History admin={user} leadId={lead.leadId} page={pageFrom(query.historyPage)} query={query} firms={firms} />
       )}
     </div>
   );
