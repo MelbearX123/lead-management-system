@@ -218,6 +218,8 @@ Trigram indexes need the `pg_trgm` extension.
 
 Each of admin, staff, and plaintiffs has different views of the app. Have a common backend (as they use similar API endpoints) and one shared frontend that displays differently based on logged in user.
 
+Stack: Next.js with TypeScript. Pages and API routes live in one app, so there's one project to run and the frontend and API share types.
+
 ## Design Decisions
 
 Changes from the first draft, why, and alternatives that don't work.
@@ -494,6 +496,87 @@ No endpoints. Rules are seeded, and routing runs inside `POST /api/leads`.
 - **409 when a conditional update changes nothing.** That's how the frontend learns someone else got there first, and can reload.
 - **Related records are paginated.** A case can have hundreds of documents, notes, or history rows, so they load separately from the lead, a page at a time.
 - **The lead form is public.** Anyone can submit, and the lead is tied to the plaintiff by email. Someone could submit a lead under another person's email but never read that person's leads. With more time: email a sign-in link to verify the address.
+
+## Implementation Phases
+
+Backend first, then frontend. Each bullet under a phase is roughly one small commit. Tests are written alongside the code they cover, not saved for the end.
+
+### Tooling
+
+| Need | Choice | Why |
+| --- | --- | --- |
+| App | Next.js (App Router), TypeScript, Tailwind | One app for pages and API. Tailwind comes with the Next.js starter |
+| Database | Postgres 17 in Docker Compose | One command to start it, same version for everyone running the repo |
+| Database access | `postgres` (postgres.js) with plain SQL, schema in `db/schema.sql` | The design relies on Postgres features (generated column, CHECK constraints, trigram indexes, conditional updates) that are plain SQL. An ORM would hide the SQL you'll be asked about, and Prisma can't express CHECK constraints or generated columns in its schema |
+| Input validation | zod | Checks request bodies and query parameters, and gives TypeScript types from the same definition |
+| Sessions | iron-session | Encrypted, HTTP-only cookie holding the user id. No sessions table needed for a demo |
+| Tests | Vitest against a separate test database | Real Postgres, so constraints and conditional updates are actually tested |
+
+Code layout: route handlers in `src/app/api/` stay thin (parse input, call a function, return a response). Database queries and business rules live in `src/server/`, which is marked server-only so it can never end up in browser code.
+
+### Phase 0: Project setup
+
+- Next.js starter with TypeScript
+- Docker Compose for Postgres, `.env.example`, `uploads/` gitignored
+- Database connection module
+
+### Phase 1: Database and seed
+
+- `db/schema.sql`: tables, foreign keys, CHECK constraints, the generated `isCase` column, indexes, `pg_trgm`
+- Setup script that resets the database and applies the schema
+- Seed: regions, categories, firms, routing rules, users
+- Seed: the 10 leads with their history rows
+- Seed: notes, plus documents from a sample PDF
+
+### Phase 2: Auth and access control
+
+- Login, logout, and `me` endpoints with iron-session
+- Helpers: get the current user, require a role, load a lead only if the caller has access (otherwise 404)
+- One error helper for the 400/401/403/404/409 responses
+- Tests: each role can only load the leads in the access rules table
+
+### Phase 3: Leads
+
+- Regions, categories, and firms endpoints
+- Submit a lead: find or create the plaintiff, route it, write history, all in one transaction
+- List leads: scoped by role, then filters, search, sort, and pagination
+- Get one lead
+- Accept, decline, assign, and progress: conditional updates, 409 when nothing changed, history in the same transaction
+- Tests: routing, every state change, the old firm losing access, two firms racing to accept
+
+### Phase 4: Documents, notes, and history
+
+- Storage module: save and read files in `uploads/` under generated names
+- Upload (PDF and size checks), list, and download documents
+- Notes: list (own firm's, or all for admins) and add
+- History: list for admins
+- Tests: a new firm sees old documents but not old notes, plaintiffs get 403 on notes
+
+### Phase 5: Frontend shell
+
+- Shared layout, login page with the demo accounts listed, redirect to the right view by role
+- Small shared pieces: lead status badge, paginated table, PDF list and upload
+
+### Phase 6: Plaintiff pages
+
+- Public lead form
+- My leads list
+- Lead detail: progress, documents, upload
+
+### Phase 7: Staff pages
+
+- Inbox with filters
+- Lead detail: accept or decline, progress, notes, documents
+
+### Phase 8: Admin pages
+
+- Leads table with search, filters (including "Unmatched"), sort, and page numbers
+- Lead detail: assign or reassign, history, every firm's notes, documents
+
+### Phase 9: Submission
+
+- README: prerequisites, setup commands, demo accounts, a short demo walkthrough, and a link to this design doc
+- Final check: fresh clone, follow the README, run every workflow
 
 ## With More Time
 
