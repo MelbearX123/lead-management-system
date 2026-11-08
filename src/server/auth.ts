@@ -7,10 +7,11 @@ import { findUserByEmail, findUserById, type Role } from "./users";
 const DEMO_PASSWORD = "demo";
 
 async function getSession() {
+  const cookieStore = await cookies();
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET is not set");
 
-  return getIronSession<{ userId?: number }>(await cookies(), {
+  return getIronSession<{ userId?: number }>(cookieStore, {
     password: secret,
     cookieName: "session",
     cookieOptions: { secure: process.env.NODE_ENV === "production" },
