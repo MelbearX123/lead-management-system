@@ -1,12 +1,15 @@
 import { Suspense } from "react";
+import { AssignLead } from "@/components/assign-lead";
 import { CaseProgress } from "@/components/case-progress";
 import { Documents } from "@/components/documents";
+import { History } from "@/components/history";
 import { LeadStatus } from "@/components/lead-status";
 import { Notes } from "@/components/notes";
 import { StaffActions } from "@/components/staff-actions";
 import { formatDate } from "@/lib/format";
 import { parseId } from "@/server/http";
 import { getLeadForUser } from "@/server/leads";
+import { listFirms } from "@/server/lookups";
 import { filledSearchParams, loadOrNotFound, requirePageUser } from "@/server/pages";
 import { pageFrom } from "@/server/pagination";
 import { isStaff } from "@/server/users";
@@ -24,6 +27,7 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
   const { leadId } = await params;
   const lead = await loadOrNotFound(() => getLeadForUser(user, parseId(leadId)));
   const query = filledSearchParams(await searchParams);
+  const firms = user.role === "admin" ? await listFirms() : [];
 
   return (
     <div className="space-y-8">
@@ -41,6 +45,9 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
         </dl>
         <p className="whitespace-pre-wrap rounded border bg-white p-4">{lead.description}</p>
       </header>
+      {user.role === "admin" && (
+        <AssignLead key={lead.firmId ?? "none"} leadId={lead.leadId} currentFirmId={lead.firmId} firms={firms} />
+      )}
       {isStaff(user) && (
         <StaffActions
           key={`${lead.status}-${lead.progress}`}
@@ -58,6 +65,9 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
       <Documents user={user} leadId={lead.leadId} page={pageFrom(query.documentsPage)} query={query} />
       {user.role !== "plaintiff" && (
         <Notes user={user} leadId={lead.leadId} page={pageFrom(query.notesPage)} query={query} />
+      )}
+      {user.role === "admin" && (
+        <History admin={user} leadId={lead.leadId} page={pageFrom(query.historyPage)} query={query} firms={firms} />
       )}
     </div>
   );

@@ -19,7 +19,7 @@ export async function LeadList({ allowedRoles, searchParams, filterable = false 
 
   return (
     <>
-      {filterable && <LeadFilters filters={filters} />}
+      {filterable && <LeadFilters filters={filters} admin={user.role === "admin"} />}
       <LeadTable leads={result.items} viewer={user.role} />
       <Pagination result={result} query={query} />
     </>
