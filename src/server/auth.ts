@@ -33,9 +33,13 @@ export async function signOut() {
   session.destroy();
 }
 
-export async function requireUser(...allowedRoles: Role[]) {
+export async function getCurrentUser() {
   const { userId } = await getSession();
-  const user = userId ? await findUserById(userId) : null;
+  return userId ? findUserById(userId) : null;
+}
+
+export async function requireUser(...allowedRoles: Role[]) {
+  const user = await getCurrentUser();
   if (!user) throw new HttpError(401, "Sign in required");
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     throw new HttpError(403, "Not allowed");
