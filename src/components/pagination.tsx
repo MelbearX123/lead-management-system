@@ -14,7 +14,7 @@ export function Pagination({ result: { page, pageSize, total }, query, param = "
   const shown = pagesAround(page, lastPage);
 
   return (
-    <nav className="flex items-center justify-between py-3 text-sm text-gray-600">
+    <nav aria-label="Pagination" className="flex items-center justify-between py-3 text-sm text-gray-600">
       <span>{total} total</span>
       <span className="flex items-center gap-3">
         {page > 1 && <Link href={href(page - 1)}>Previous</Link>}
@@ -38,5 +38,6 @@ export function Pagination({ result: { page, pageSize, total }, query, param = "
 
 function pagesAround(page: number, lastPage: number) {
   const pages = new Set([1, page - 2, page - 1, page, page + 1, page + 2, lastPage]);
-  return [...pages].filter((target) => target >= 1 && target <= lastPage).sort((a, b) => a - b);
+  const shown = [...pages].filter((target) => target >= 1 && target <= lastPage).sort((a, b) => a - b);
+  return shown.flatMap((target, index) => (index > 0 && target - shown[index - 1] === 2 ? [target - 1, target] : [target]));
 }
