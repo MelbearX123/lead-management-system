@@ -30,7 +30,7 @@ CREATE TABLE users (
   fname text NOT NULL,
   lname text NOT NULL,
   email text NOT NULL UNIQUE CHECK (email = lower(email)),
-  CHECK ((firm_id IS NOT NULL) = (role IN ('attorney', 'paralegal')))
+  CONSTRAINT firm_matches_role CHECK ((firm_id IS NOT NULL) = (role IN ('attorney', 'paralegal')))
 );
 
 CREATE TABLE leads (
@@ -45,7 +45,8 @@ CREATE TABLE leads (
   progress text CHECK (progress IN ('intake', 'investigation', 'negotiation', 'litigation', 'closed')),
   is_case boolean GENERATED ALWAYS AS (progress IS NOT NULL) STORED,
   time_submit timestamptz NOT NULL DEFAULT now(),
-  CHECK (status = 'pending' OR (firm_id IS NOT NULL AND progress IS NOT NULL))
+  CONSTRAINT accepted_leads_have_firm_and_progress
+    CHECK (status = 'pending' OR (firm_id IS NOT NULL AND progress IS NOT NULL))
 );
 
 CREATE TABLE documents (
