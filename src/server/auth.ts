@@ -4,11 +4,14 @@ import { cookies } from "next/headers";
 import { HttpError } from "./http";
 import { findUserByEmail, findUserById, type Role } from "./users";
 
-export const DEMO_PASSWORD = "demo";
+const DEMO_PASSWORD = "demo";
 
 async function getSession() {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET is not set");
+
   return getIronSession<{ userId?: number }>(await cookies(), {
-    password: process.env.SESSION_SECRET!,
+    password: secret,
     cookieName: "session",
     cookieOptions: { secure: process.env.NODE_ENV === "production" },
   });
