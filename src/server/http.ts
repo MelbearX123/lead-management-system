@@ -39,7 +39,8 @@ export async function parseBody<T>(request: Request, schema: z.ZodType<T>) {
 }
 
 export function parseQuery<T>(request: Request, schema: z.ZodType<T>) {
-  return parseInput(schema, Object.fromEntries(new URL(request.url).searchParams));
+  const params = [...new URL(request.url).searchParams].filter(([, value]) => value !== "");
+  return parseInput(schema, Object.fromEntries(params));
 }
 
 export function parseId(value: string) {
