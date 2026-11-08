@@ -46,3 +46,10 @@ export function parseQuery<T>(request: Request, schema: z.ZodType<T>) {
 export function parseId(value: string) {
   return parseInput(z.coerce.number().int().positive().max(2 ** 31 - 1), value);
 }
+
+export async function parseFile(request: Request, field: string) {
+  const form = await request.formData().catch(() => null);
+  const file = form?.get(field);
+  if (!(file instanceof File)) throw new HttpError(400, `Attach a file in the "${field}" field`);
+  return file;
+}
