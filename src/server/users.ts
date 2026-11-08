@@ -1,8 +1,11 @@
 import "server-only";
 import type postgres from "postgres";
 import { sql } from "./db";
+import { HttpError } from "./http";
 
 export type Role = "plaintiff" | "attorney" | "paralegal" | "admin";
+
+export const staffRoles = ["attorney", "paralegal"] as const;
 
 export type User = {
   userId: number;
@@ -31,4 +34,20 @@ async function findUser(condition: postgres.Fragment) {
     WHERE ${condition}
   `;
   return user ?? null;
+}
+
+export async function findOrCreatePlaintiff(
+  tx: postgres.TransactionSql,
+  { fname, lname, email }: { fname: string; lname: string; email: string },
+) {
+  const normalizedEmail = email.toLowerCase();
+  await tx`
+    INSERT INTO users ${tx({ role: "plaintiff", fname, lname, email: normalizedEmail })}
+    ON CONFLICT (email) DO NOTHING
+  `;
+  const [user] = await tx<{ userId: number; role: Role }[]>`
+    SELECT user_id, role FROM users WHERE email = ${normalizedEmail}
+  `;
+  if (user.role !== "plaintiff") throw new HttpError(400, "Use a different email to submit a lead");
+  return user.userId;
 }
