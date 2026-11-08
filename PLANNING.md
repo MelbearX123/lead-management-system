@@ -135,7 +135,7 @@ FirmId is null if declined.
 - `progress` is the case progress the plaintiff sees: intake, investigation, negotiation, litigation, closed (CHECK constraint). Null until first accepted. Accepting sets `progress = COALESCE(progress, 'intake')`, so only the first acceptance starts it at intake. Staff can set any stage, since many cases settle without litigation.
 - `isCase` is a generated column: `GENERATED ALWAYS AS (progress IS NOT NULL) STORED`. Postgres computes it, so it can't disagree with `progress`. It turns true on first acceptance and stays true through reassignment.
 - Reassigning (lead or case): admin sets `firmId` to the new firm and `status` back to pending. The new firm accepts or declines like any new lead. `isCase`, `progress`, and documents carry over. The old firm's notes stay with the old firm.
-- Every status change is a conditional update (`... WHERE status = 'pending' AND firmId = <my firm>`), so a double-click, or an admin reassigning while a firm accepts, can't both succeed.
+- Every status change locks the lead's row (`SELECT ... FOR UPDATE`), checks its current state, then updates it. A second change to the same lead waits for the first to finish and then sees the new state, so a double-click, or an admin reassigning while a firm accepts, can't both succeed.
 
 Lifecycle of one lead:
 
@@ -446,14 +446,16 @@ No endpoints. Rules are seeded, and routing runs inside `POST /api/leads`.
 
 `GET /api/leads` query parameters:
 
-| Parameter | Who can use it | Values |
-| --- | --- | --- |
-| q | admin | Text matched against title and plaintiff name |
-| regionId, categoryId | staff, admin | Filter by region or category |
-| firmId | admin | A firm's id, or `unmatched` for leads with no firm |
-| status | staff, admin | pending or accepted |
-| sort | signed in | newest (default) or oldest |
-| page | signed in | Page number, 25 per page |
+Results always start from what the caller can see. Filters only narrow that down, so every role can use them without seeing more.
+
+| Parameter | Values |
+| --- | --- |
+| q | Text matched against title and plaintiff name |
+| regionId, categoryId | Filter by region or category |
+| firmId | A firm's id, or `unmatched` for leads with no firm |
+| status | pending or accepted |
+| sort | newest (default) or oldest |
+| page | Page number, 25 per page |
 
 ### Documents
 
@@ -484,7 +486,7 @@ No endpoints. Rules are seeded, and routing runs inside `POST /api/leads`.
 | 401 | Not signed in |
 | 403 | Signed in but the wrong role, like a plaintiff reading notes |
 | 404 | The lead doesn't exist, or the caller has no access to it |
-| 409 | The lead changed first, like a firm accepting a lead an admin just reassigned |
+| 409 | The lead isn't in the right state for the change, like accepting a lead that's already accepted |
 
 ### Why it's shaped this way
 
@@ -493,7 +495,7 @@ No endpoints. Rules are seeded, and routing runs inside `POST /api/leads`.
 - **One `assign` endpoint for both unmatched leads and reassignment.** Both set the firm and put the lead back to pending, so the data change is the same.
 - **One `GET /api/leads` for every role.** The backend always narrows results to what the caller can access before applying filters. Separate endpoints per role (`/api/admin/leads`, `/api/firm/leads`) would also work, but would repeat the same query three times.
 - **404 instead of 403 for someone else's lead.** A 403 would confirm the lead exists. A 404 reveals nothing.
-- **409 when a conditional update changes nothing.** That's how the frontend learns someone else got there first, and can reload.
+- **409 when the lead is in the wrong state.** That's how the frontend learns someone else got there first, and can reload. A firm that loses a lead to a reassignment gets 404 instead, because it can no longer see the lead at all.
 - **Related records are paginated.** A case can have hundreds of documents, notes, or history rows, so they load separately from the lead, a page at a time.
 - **The lead form is public.** Anyone can submit, and the lead is tied to the plaintiff by email. Someone could submit a lead under another person's email but never read that person's leads. With more time: email a sign-in link to verify the address.
 
@@ -507,10 +509,10 @@ Backend first, then frontend. Each bullet under a phase is roughly one small com
 | --- | --- | --- |
 | App | Next.js (App Router), TypeScript, Tailwind | One app for pages and API. Tailwind comes with the Next.js starter |
 | Database | Postgres 17 in Docker Compose | One command to start it, same version for everyone running the repo |
-| Database access | `postgres` (postgres.js) with plain SQL, schema in `db/schema.sql` | The design relies on Postgres features (generated column, CHECK constraints, trigram indexes, conditional updates) that are plain SQL. An ORM would hide the SQL you'll be asked about, and Prisma can't express CHECK constraints or generated columns in its schema |
+| Database access | `postgres` (postgres.js) with plain SQL, schema in `db/schema.sql` | The design relies on Postgres features (generated column, CHECK constraints, trigram indexes, row locks) that are plain SQL. An ORM would hide the SQL you'll be asked about, and Prisma can't express CHECK constraints or generated columns in its schema |
 | Input validation | zod | Checks request bodies and query parameters, and gives TypeScript types from the same definition |
 | Sessions | iron-session | Encrypted, HTTP-only cookie holding the user id. No sessions table needed for a demo |
-| Tests | Vitest against a separate test database | Real Postgres, so constraints and conditional updates are actually tested |
+| Tests | Vitest against a separate test database | Real Postgres, so constraints and concurrent changes are actually tested |
 
 Code layout: route handlers in `src/app/api/` stay thin (parse input, call a function, return a response). Database queries and business rules live in `src/server/`, which is marked server-only so it can never end up in browser code.
 
@@ -541,7 +543,7 @@ Code layout: route handlers in `src/app/api/` stay thin (parse input, call a fun
 - Submit a lead: find or create the plaintiff, route it, write history, all in one transaction
 - List leads: scoped by role, then filters, search, sort, and pagination
 - Get one lead
-- Accept, decline, assign, and progress: conditional updates, 409 when nothing changed, history in the same transaction
+- Accept, decline, assign, and progress: lock the row, 409 when the lead is in the wrong state, history in the same transaction
 - Tests: routing, every state change, the old firm losing access, two firms racing to accept
 
 ### Phase 4: Documents, notes, and history
