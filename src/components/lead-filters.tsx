@@ -9,12 +9,12 @@ export async function LeadFilters({ filters }: { filters: Filters }) {
 
   return (
     <form className="mb-4 flex flex-wrap items-center gap-3 text-sm">
-      <select name="status" defaultValue={filters.status ?? ""} className={selectClass}>
+      <select name="status" aria-label="Status" defaultValue={filters.status ?? ""} className={selectClass}>
         <option value="">Any status</option>
         <option value="pending">Pending</option>
         <option value="accepted">Accepted</option>
       </select>
-      <select name="categoryId" defaultValue={filters.categoryId ?? ""} className={selectClass}>
+      <select name="categoryId" aria-label="Type of case" defaultValue={filters.categoryId ?? ""} className={selectClass}>
         <option value="">Any type</option>
         {categories.map((category) => (
           <option key={category.categoryId} value={category.categoryId}>
@@ -22,7 +22,7 @@ export async function LeadFilters({ filters }: { filters: Filters }) {
           </option>
         ))}
       </select>
-      <select name="regionId" defaultValue={filters.regionId ?? ""} className={selectClass}>
+      <select name="regionId" aria-label="State" defaultValue={filters.regionId ?? ""} className={selectClass}>
         <option value="">Any state</option>
         {regions.map((region) => (
           <option key={region.regionId} value={region.regionId}>
