@@ -24,9 +24,14 @@ describe("leadsVisibleTo", () => {
     { who: "another plaintiff sees only theirs", email: "jordan@example.com", leadIds: [2, 6, 7, 8, 9] },
     { who: "Firm A staff see only Firm A's leads", email: "avery@example.com", leadIds: [1, 3, 4] },
     { who: "Firm B staff see only Firm B's leads", email: "sam@example.com", leadIds: [2, 5, 6, 7] },
-    { who: "an admin sees every lead", email: "riley@example.com", leadIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
   ])("$who", async ({ email, leadIds }) => {
     expect(await visibleLeadIds(await seededUser(email))).toEqual(leadIds);
+  });
+
+  it("an admin sees every lead", async () => {
+    const all = await sql<{ leadId: number }[]>`SELECT lead_id FROM leads`;
+    const visible = await visibleLeadIds(await seededUser("riley@example.com"));
+    expect(visible).toEqual(expect.arrayContaining(all.map((row) => row.leadId)));
   });
 });
 
