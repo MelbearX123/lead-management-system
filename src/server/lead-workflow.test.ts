@@ -110,8 +110,8 @@ describe("state changes", () => {
     expect(await declineLead(carla, leadId)).toMatchObject({ firmId: null, status: "pending" });
     await expect(getLeadForUser(carla, leadId)).rejects.toMatchObject({ status: 404 });
 
-    const { leads } = await listLeads(riley, { firmId: "unmatched", sort: "newest", page: 1 });
-    expect(leads.map((lead) => lead.leadId)).toContain(leadId);
+    const { items } = await listLeads(riley, { firmId: "unmatched", sort: "newest", page: 1 });
+    expect(items.map((lead) => lead.leadId)).toContain(leadId);
   });
 
   it("reassigning a case keeps its progress, needs re-acceptance, and cuts off the old firm", async () => {
@@ -143,15 +143,15 @@ describe("state changes", () => {
 describe("listLeads", () => {
   it("finds leads by part of the plaintiff's name", async () => {
     const lead = await submit({ fname: "Zebulon", email: "zebulon@test.example" });
-    const { leads, total } = await listLeads(riley, { q: "zebul", sort: "newest", page: 1 });
+    const { items, total } = await listLeads(riley, { q: "zebul", sort: "newest", page: 1 });
     expect(total).toBe(1);
-    expect(leads[0].leadId).toBe(lead.leadId);
+    expect(items[0].leadId).toBe(lead.leadId);
   });
 
   it("only lists a firm's own leads to its staff", async () => {
     await submit();
-    const { leads } = await listLeads(carla, { sort: "newest", page: 1 });
-    expect(leads.length).toBeGreaterThan(0);
-    expect(leads.every((lead) => lead.firmId === firmC)).toBe(true);
+    const { items } = await listLeads(carla, { sort: "newest", page: 1 });
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((lead) => lead.firmId === firmC)).toBe(true);
   });
 });

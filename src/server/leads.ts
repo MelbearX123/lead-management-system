@@ -2,6 +2,7 @@ import "server-only";
 import type postgres from "postgres";
 import { sql } from "./db";
 import { HttpError } from "./http";
+import { paginate } from "./pagination";
 import { findOrCreatePlaintiff, type User } from "./users";
 
 export const leadStatuses = ["pending", "accepted"] as const;
@@ -52,8 +53,6 @@ export type NewLead = {
 
 type LeadChange = Partial<Pick<Lead, "firmId" | "status" | "progress">>;
 
-const PAGE_SIZE = 25;
-
 const historyFields = { firmId: "firm", status: "status", progress: "progress" } as const;
 
 export function leadsVisibleTo(user: User) {
@@ -70,13 +69,14 @@ export function leadsVisibleTo(user: User) {
 
 export async function getLeadForUser(user: User, leadId: number) {
   const [lead] = await sql<LeadDetails[]>`
-    ${selectLeadDetails()} WHERE leads.lead_id = ${leadId} AND ${leadsVisibleTo(user)}
+    ${leadDetailColumns()} ${leadDetailTables()}
+    WHERE leads.lead_id = ${leadId} AND ${leadsVisibleTo(user)}
   `;
   if (!lead) throw new HttpError(404, "Lead not found");
   return lead;
 }
 
-export async function listLeads(user: User, { q, regionId, categoryId, firmId, status, sort, page }: LeadFilters) {
+export function listLeads(user: User, { q, regionId, categoryId, firmId, status, sort, page }: LeadFilters) {
   const where = sql`AND`.join([
     leadsVisibleTo(user),
     q !== undefined &&
@@ -89,19 +89,12 @@ export async function listLeads(user: User, { q, regionId, categoryId, firmId, s
   ]);
   const direction = sort === "oldest" ? sql`ASC` : sql`DESC`;
 
-  const [leads, [{ total }]] = await Promise.all([
-    sql<LeadDetails[]>`
-      ${selectLeadDetails()} WHERE ${where}
-      ORDER BY leads.time_submit ${direction}, leads.lead_id ${direction}
-      LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
-    `,
-    sql<{ total: number }[]>`
-      SELECT count(*)::int AS total
-      FROM leads JOIN users ON users.user_id = leads.plaintiff_id
-      WHERE ${where}
-    `,
-  ]);
-  return { leads, total, page, pageSize: PAGE_SIZE };
+  return paginate<LeadDetails>({
+    select: leadDetailColumns(),
+    from: sql`${leadDetailTables()} WHERE ${where}`,
+    orderBy: sql`leads.time_submit ${direction}, leads.lead_id ${direction}`,
+    page,
+  });
 }
 
 export function submitLead({ fname, lname, email, regionId, categoryId, title, description }: NewLead) {
@@ -163,12 +156,17 @@ function changeLead(actor: User, leadId: number, decide: (lead: Lead) => LeadCha
   });
 }
 
-function selectLeadDetails() {
+function leadDetailColumns() {
   return sql`
     SELECT leads.*,
            users.fname || ' ' || users.lname AS plaintiff_name,
            users.email AS plaintiff_email,
            firms.name AS firm_name
+  `;
+}
+
+function leadDetailTables() {
+  return sql`
     FROM leads
     JOIN users ON users.user_id = leads.plaintiff_id
     LEFT JOIN firms ON firms.firm_id = leads.firm_id

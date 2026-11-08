@@ -2,6 +2,7 @@ import { z } from "zod";
 import { requireUser } from "@/server/auth";
 import { parseBody, parseQuery, withErrors } from "@/server/http";
 import { leadStatuses, listLeads, submitLead } from "@/server/leads";
+import { pageSchema } from "@/server/pagination";
 
 const name = z.string().trim().min(1).max(100);
 
@@ -22,7 +23,7 @@ const filtersSchema = z.object({
   firmId: z.union([z.literal("unmatched"), z.coerce.number().int().positive()]).optional(),
   status: z.enum(leadStatuses).optional(),
   sort: z.enum(["newest", "oldest"]).default("newest"),
-  page: z.coerce.number().int().min(1).default(1),
+  page: pageSchema,
 });
 
 export const GET = withErrors(async (request: Request) => {
