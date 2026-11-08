@@ -2,11 +2,12 @@ import { Suspense } from "react";
 import { CaseProgress } from "@/components/case-progress";
 import { Documents } from "@/components/documents";
 import { LeadStatus } from "@/components/lead-status";
+import { Notes } from "@/components/notes";
 import { StaffActions } from "@/components/staff-actions";
 import { formatDate } from "@/lib/format";
 import { parseId } from "@/server/http";
 import { getLeadForUser } from "@/server/leads";
-import { loadOrNotFound, requirePageUser } from "@/server/pages";
+import { filledSearchParams, loadOrNotFound, requirePageUser } from "@/server/pages";
 import { pageFrom } from "@/server/pagination";
 import { isStaff } from "@/server/users";
 
@@ -22,7 +23,7 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
   const user = await requirePageUser();
   const { leadId } = await params;
   const lead = await loadOrNotFound(() => getLeadForUser(user, parseId(leadId)));
-  const documentsPage = pageFrom((await searchParams).documentsPage);
+  const query = filledSearchParams(await searchParams);
 
   return (
     <div className="space-y-8">
@@ -54,7 +55,10 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
           <CaseProgress progress={lead.progress} />
         </section>
       )}
-      <Documents user={user} leadId={lead.leadId} page={documentsPage} />
+      <Documents user={user} leadId={lead.leadId} page={pageFrom(query.documentsPage)} query={query} />
+      {user.role !== "plaintiff" && (
+        <Notes user={user} leadId={lead.leadId} page={pageFrom(query.notesPage)} query={query} />
+      )}
     </div>
   );
 }

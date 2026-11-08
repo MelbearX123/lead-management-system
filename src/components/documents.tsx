@@ -4,7 +4,9 @@ import type { User } from "@/server/users";
 import { Pagination } from "./pagination";
 import { UploadDocument } from "./upload-document";
 
-export async function Documents({ user, leadId, page }: { user: User; leadId: number; page: number }) {
+type Props = { user: User; leadId: number; page: number; query: Record<string, string> };
+
+export async function Documents({ user, leadId, page, query }: Props) {
   const result = await listDocuments(user, leadId, page);
 
   return (
@@ -30,7 +32,7 @@ export async function Documents({ user, leadId, page }: { user: User; leadId: nu
           ))}
         </ul>
       )}
-      {result.total > result.pageSize && <Pagination result={result} query={{}} param="documentsPage" />}
+      {result.total > result.pageSize && <Pagination result={result} query={query} param="documentsPage" />}
       {user.role !== "admin" && <UploadDocument leadId={leadId} />}
     </section>
   );
