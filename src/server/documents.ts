@@ -6,7 +6,7 @@ import { paginate } from "./pagination";
 import { loadFile, saveFile } from "./storage";
 import type { Role, User } from "./users";
 
-const MAX_BYTES = 10 * 1024 * 1024;
+export const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const PDF_SIGNATURE = "%PDF-";
 
 export type DocumentInfo = {
@@ -36,16 +36,17 @@ export async function listDocuments(user: User, leadId: number, page: number) {
 
 export async function addDocument(user: User, leadId: number, file: File) {
   await getLeadForUser(user, leadId);
-  if (file.size > MAX_BYTES) throw new HttpError(400, "PDFs must be 10 MB or smaller");
+  if (file.size > MAX_PDF_BYTES) throw new HttpError(400, "PDFs must be 10 MB or smaller");
 
   const data = new Uint8Array(await file.arrayBuffer());
   if (new TextDecoder().decode(data.subarray(0, PDF_SIGNATURE.length)) !== PDF_SIGNATURE) {
     throw new HttpError(400, "Only PDF files can be uploaded");
   }
 
+  const fileName = file.name.slice(0, 255) || "document.pdf";
   const storageKey = await saveFile(data);
   const [document] = await sql<{ documentId: number }[]>`
-    INSERT INTO documents ${sql({ leadId, uploadedBy: user.userId, fileName: file.name, storageKey, sizeBytes: data.length })}
+    INSERT INTO documents ${sql({ leadId, uploadedBy: user.userId, fileName, storageKey, sizeBytes: data.length })}
     RETURNING document_id
   `;
   return document;

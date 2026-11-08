@@ -487,6 +487,7 @@ Results always start from what the caller can see. Filters only narrow that down
 | 403 | Signed in but the wrong role, like a plaintiff reading notes |
 | 404 | The lead doesn't exist, or the caller has no access to it |
 | 409 | The lead isn't in the right state for the change, like accepting a lead that's already accepted |
+| 413 | An upload is far over the size limit, rejected before it's read into memory |
 
 ### Why it's shaped this way
 

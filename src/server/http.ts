@@ -2,6 +2,7 @@ import postgres from "postgres";
 import { z } from "zod";
 
 const FOREIGN_KEY_VIOLATION = "23503";
+const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
 
 export class HttpError extends Error {
   status: number;
@@ -47,7 +48,10 @@ export function parseId(value: string) {
   return parseInput(z.coerce.number().int().positive().max(2 ** 31 - 1), value);
 }
 
-export async function parseFile(request: Request, field: string) {
+export async function parseFile(request: Request, field: string, maxBytes: number) {
+  if (Number(request.headers.get("content-length")) > maxBytes + MULTIPART_OVERHEAD_BYTES) {
+    throw new HttpError(413, "Upload is too large");
+  }
   const form = await request.formData().catch(() => null);
   const file = form?.get(field);
   if (!(file instanceof File)) throw new HttpError(400, `Attach a file in the "${field}" field`);
