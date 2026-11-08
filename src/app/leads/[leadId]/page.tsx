@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CaseProgress } from "@/components/case-progress";
 import { Documents } from "@/components/documents";
 import { LeadStatus } from "@/components/lead-status";
 import { formatDate } from "@/lib/format";
@@ -37,6 +38,12 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
         </dl>
         <p className="whitespace-pre-wrap rounded border bg-white p-4">{lead.description}</p>
       </header>
+      {lead.progress && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Progress</h2>
+          <CaseProgress progress={lead.progress} />
+        </section>
+      )}
       <Documents user={user} leadId={lead.leadId} page={documentsPage} />
     </div>
   );
