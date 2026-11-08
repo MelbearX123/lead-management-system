@@ -50,6 +50,8 @@ export type NewLead = {
   description: string;
 };
 
+type LeadChange = Partial<Pick<Lead, "firmId" | "status" | "progress">>;
+
 const PAGE_SIZE = 25;
 
 const historyFields = { firmId: "firm", status: "status", progress: "progress" } as const;
@@ -113,6 +115,49 @@ export function submitLead({ fname, lname, email, regionId, categoryId, title, d
     `;
     await recordHistory(tx, null, { ...lead, firmId: null }, lead);
     return lead;
+  });
+}
+
+export function acceptLead(staff: User, leadId: number) {
+  return changeLead(staff, leadId, (lead) => {
+    if (lead.status !== "pending") throw new HttpError(409, "Only pending leads can be accepted");
+    return { status: "accepted", progress: lead.progress ?? "intake" };
+  });
+}
+
+export function declineLead(staff: User, leadId: number) {
+  return changeLead(staff, leadId, (lead) => {
+    if (lead.status !== "pending") throw new HttpError(409, "Only pending leads can be declined");
+    return { firmId: null };
+  });
+}
+
+export function assignLead(admin: User, leadId: number, firmId: number) {
+  return changeLead(admin, leadId, (lead) => {
+    if (lead.firmId === firmId) throw new HttpError(409, "The lead is already with this firm");
+    return { firmId, status: "pending" };
+  });
+}
+
+export function updateProgress(staff: User, leadId: number, progress: Progress) {
+  return changeLead(staff, leadId, (lead) => {
+    if (lead.status !== "accepted") throw new HttpError(409, "Only accepted cases have progress");
+    return { progress };
+  });
+}
+
+function changeLead(actor: User, leadId: number, decide: (lead: Lead) => LeadChange) {
+  return sql.begin(async (tx) => {
+    const [before] = await tx<Lead[]>`
+      SELECT * FROM leads WHERE leads.lead_id = ${leadId} AND ${leadsVisibleTo(actor)} FOR UPDATE
+    `;
+    if (!before) throw new HttpError(404, "Lead not found");
+
+    const [after] = await tx<Lead[]>`
+      UPDATE leads SET ${tx(decide(before))} WHERE lead_id = ${leadId} RETURNING *
+    `;
+    await recordHistory(tx, actor.userId, before, after);
+    return after;
   });
 }
 
