@@ -5,7 +5,11 @@ import { HttpError } from "./http";
 
 export type Role = "plaintiff" | "attorney" | "paralegal" | "admin";
 
-export const staffRoles = ["attorney", "paralegal"] as const;
+export const staffRoles: readonly Role[] = ["attorney", "paralegal"];
+
+export function isStaff(user: User) {
+  return staffRoles.includes(user.role);
+}
 
 export type User = {
   userId: number;

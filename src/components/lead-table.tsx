@@ -5,7 +5,7 @@ import type { Role } from "@/server/users";
 import { LeadStatus } from "./lead-status";
 
 export function LeadTable({ leads, viewer }: { leads: LeadDetails[]; viewer: Role }) {
-  if (leads.length === 0) return <p className="py-6 text-gray-500">No leads yet.</p>;
+  if (leads.length === 0) return <p className="py-6 text-gray-500">No leads found.</p>;
 
   const showPlaintiff = viewer !== "plaintiff";
   const showFirm = viewer === "plaintiff" || viewer === "admin";

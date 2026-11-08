@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { sql } from "../src/server/db.ts";
-import type { LeadStatus, Progress } from "../src/server/leads.ts";
+import type { LeadStatus, Progress } from "../src/lib/lead-states.ts";
 import { saveFile } from "../src/server/storage.ts";
 import type { Role } from "../src/server/users.ts";
 import { regions } from "./regions.ts";

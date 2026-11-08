@@ -2,11 +2,14 @@ import { Suspense } from "react";
 import { CaseProgress } from "@/components/case-progress";
 import { Documents } from "@/components/documents";
 import { LeadStatus } from "@/components/lead-status";
+import { Notes } from "@/components/notes";
+import { StaffActions } from "@/components/staff-actions";
 import { formatDate } from "@/lib/format";
 import { parseId } from "@/server/http";
 import { getLeadForUser } from "@/server/leads";
-import { loadOrNotFound, requirePageUser } from "@/server/pages";
+import { filledSearchParams, loadOrNotFound, requirePageUser } from "@/server/pages";
 import { pageFrom } from "@/server/pagination";
+import { isStaff } from "@/server/users";
 
 export default function LeadPage({ params, searchParams }: PageProps<"/leads/[leadId]">) {
   return (
@@ -20,7 +23,7 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
   const user = await requirePageUser();
   const { leadId } = await params;
   const lead = await loadOrNotFound(() => getLeadForUser(user, parseId(leadId)));
-  const documentsPage = pageFrom((await searchParams).documentsPage);
+  const query = filledSearchParams(await searchParams);
 
   return (
     <div className="space-y-8">
@@ -38,13 +41,24 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[leadId]">
         </dl>
         <p className="whitespace-pre-wrap rounded border bg-white p-4">{lead.description}</p>
       </header>
+      {isStaff(user) && (
+        <StaffActions
+          key={`${lead.status}-${lead.progress}`}
+          leadId={lead.leadId}
+          status={lead.status}
+          progress={lead.progress}
+        />
+      )}
       {lead.progress && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Progress</h2>
           <CaseProgress progress={lead.progress} />
         </section>
       )}
-      <Documents user={user} leadId={lead.leadId} page={documentsPage} />
+      <Documents user={user} leadId={lead.leadId} page={pageFrom(query.documentsPage)} query={query} />
+      {user.role !== "plaintiff" && (
+        <Notes user={user} leadId={lead.leadId} page={pageFrom(query.notesPage)} query={query} />
+      )}
     </div>
   );
 }

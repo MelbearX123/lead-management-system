@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { requireUser } from "@/server/auth";
 import { parseBody, parseId, withErrors } from "@/server/http";
-import { progressStages, updateProgress } from "@/server/leads";
+import { progressStages } from "@/lib/lead-states";
+import { updateProgress } from "@/server/leads";
 import { staffRoles } from "@/server/users";
 
 const progressSchema = z.object({ progress: z.enum(progressStages) });
