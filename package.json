@@ -2,11 +2,13 @@
   "name": "lead-management",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:setup": "node --conditions=react-server --env-file=.env db/setup.ts"
   },
   "dependencies": {
     "next": "16.4.5",
