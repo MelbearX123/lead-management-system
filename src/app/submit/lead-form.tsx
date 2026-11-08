@@ -20,6 +20,7 @@ export function LeadForm({ regions, categories, demoPassword }: Props) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const lead = Object.fromEntries(new FormData(event.currentTarget));
+    setError(null);
     setSubmitting(true);
     try {
       const response = await sendJson("/api/leads", "POST", lead);
