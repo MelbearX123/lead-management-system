@@ -1,15 +1,10 @@
 import "server-only";
 import type postgres from "postgres";
+import type { LeadStatus, Progress } from "../lib/lead-states";
 import { sql } from "./db";
 import { HttpError } from "./http";
 import { paginate } from "./pagination";
 import { findOrCreatePlaintiff, type User } from "./users";
-
-export const leadStatuses = ["pending", "accepted"] as const;
-export type LeadStatus = (typeof leadStatuses)[number];
-
-export const progressStages = ["intake", "investigation", "negotiation", "litigation", "closed"] as const;
-export type Progress = (typeof progressStages)[number];
 
 export type Lead = {
   leadId: number;

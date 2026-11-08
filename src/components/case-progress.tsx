@@ -1,5 +1,5 @@
 import { capitalize } from "@/lib/format";
-import { type Progress, progressStages } from "@/server/leads";
+import { type Progress, progressStages } from "@/lib/lead-states";
 
 export function CaseProgress({ progress }: { progress: Progress }) {
   const current = progressStages.indexOf(progress);

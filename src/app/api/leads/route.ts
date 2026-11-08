@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { requireUser } from "@/server/auth";
 import { parseBody, parseQuery, withErrors } from "@/server/http";
-import { leadStatuses, listLeads, submitLead } from "@/server/leads";
+import { leadStatuses } from "@/lib/lead-states";
+import { listLeads, submitLead } from "@/server/leads";
 import { pageSchema } from "@/server/pagination";
 
 const name = z.string().trim().min(1).max(100);
