@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? "uploads");
+const uploadsDir = path.resolve(/* turbopackIgnore: true */ process.env.UPLOADS_DIR ?? "uploads");
 
 export async function saveFile(data: Uint8Array) {
   const storageKey = randomUUID();
