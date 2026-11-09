@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { sendForm } from "@/lib/api";
 
 export function UploadDocument({ leadId }: { leadId: number }) {
@@ -9,26 +9,43 @@ export function UploadDocument({ leadId }: { leadId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  async function upload(form: FormData) {
+  async function upload(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const form = new FormData();
+    form.append("file", file);
+    setError(null);
     setUploading(true);
     try {
       await sendForm(`/api/leads/${leadId}/documents`, form);
-      setError(null);
       router.refresh();
     } catch (failure) {
       setError((failure as Error).message);
     } finally {
       setUploading(false);
+      input.value = "";
     }
   }
 
   return (
-    <form action={upload} className="flex items-center gap-3 text-sm">
-      <input name="file" type="file" accept="application/pdf" required />
-      <button disabled={uploading} className="rounded bg-gray-900 px-3 py-1.5 text-white disabled:opacity-50">
+    <div className="flex items-center gap-3 text-sm">
+      <label
+        className={`rounded bg-gray-900 px-3 py-1.5 text-white ${
+          uploading ? "cursor-wait opacity-50" : "cursor-pointer hover:bg-gray-700"
+        } has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2`}
+      >
         {uploading ? "Uploading…" : "Upload PDF"}
-      </button>
+        <input
+          type="file"
+          accept="application/pdf"
+          onChange={upload}
+          disabled={uploading}
+          className="sr-only"
+        />
+      </label>
       {error && <span className="text-red-600">{error}</span>}
-    </form>
+    </div>
   );
 }
